@@ -44,7 +44,15 @@ export default function App() {
   const selectedSkillName = currentViewState.skillName || null;
 
   const handleViewChange = (view, jobId, skillName) => {
-    if (!isAuthenticated && view !== "home" && view !== "job-detail" && view !== "skill-detail" && view !== "future-predictions" && view !== "top-skills") {
+    if (
+      !isAuthenticated &&
+      view !== "home" &&
+      view !== "job-detail" &&
+      view !== "skill-detail" &&
+      view !== "future-predictions" &&
+      view !== "top-skills" &&
+      view !== "job-matching"
+    ) {
       setShowAuthModal(true);
       return;
     }

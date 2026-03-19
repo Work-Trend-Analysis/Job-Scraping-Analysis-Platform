@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -6,147 +6,101 @@ import { Progress } from './ui/progress';
 import { Star, MapPin, Building, Clock, DollarSign, Users, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-// Mock user skills from resume
-const userSkills = [
-  { name: 'JavaScript', proficiency: 85 },
-  { name: 'Python', proficiency: 78 },
-  { name: 'React', proficiency: 82 },
-  { name: 'SQL', proficiency: 75 },
-  { name: 'Git', proficiency: 80 },
-  { name: 'HTML/CSS', proficiency: 88 },
-  { name: 'Node.js', proficiency: 70 }
+const FALLBACK_SKILLS = [
+  { name: 'Communication', proficiency: 75 },
+  { name: 'Problem Solving', proficiency: 75 },
+  { name: 'Teamwork', proficiency: 75 }
 ];
 
-const matchedJobs = [
-  {
-    id: 1,
-    title: 'Senior Full Stack Developer',
-    company: 'TechVision Labs',
-    location: 'Bangalore, Karnataka',
-    type: 'Full-time',
-    experience: '3-5 years',
-    salary: '₹18-28 LPA',
-    matchScore: 94,
-    requiredSkills: ['JavaScript', 'React', 'Node.js', 'Python', 'SQL'],
-    matchingSkills: ['JavaScript', 'React', 'Node.js', 'Python', 'SQL'],
-    missingSkills: [],
-    description: 'Join our innovative team to build cutting-edge web applications using modern technologies.',
-    benefits: ['Health Insurance', 'Remote Work', 'Stock Options', 'Learning Budget'],
-    posted: '2 days ago',
-    applicants: 45,
-    companyRating: 4.6
-  },
-  {
-    id: 2,
-    title: 'Frontend Developer',
-    company: 'DigitalCraft Solutions',
-    location: 'Mumbai, Maharashtra',
-    type: 'Full-time',
-    experience: '2-4 years',
-    salary: '₹12-20 LPA',
-    matchScore: 89,
-    requiredSkills: ['React', 'JavaScript', 'HTML/CSS', 'TypeScript', 'Redux'],
-    matchingSkills: ['React', 'JavaScript', 'HTML/CSS'],
-    missingSkills: ['TypeScript', 'Redux'],
-    description: 'Create beautiful and responsive user interfaces for our digital products.',
-    benefits: ['Flexible Hours', 'Health Insurance', 'Team Outings'],
-    posted: '1 day ago',
-    applicants: 32,
-    companyRating: 4.3
-  },
-  {
-    id: 3,
-    title: 'Backend Developer',
-    company: 'DataFlow Systems',
-    location: 'Hyderabad, Telangana',
-    type: 'Full-time',
-    experience: '3-6 years',
-    salary: '₹15-25 LPA',
-    matchScore: 85,
-    requiredSkills: ['Python', 'Django', 'PostgreSQL', 'AWS', 'Docker'],
-    matchingSkills: ['Python'],
-    missingSkills: ['Django', 'PostgreSQL', 'AWS', 'Docker'],
-    description: 'Build scalable backend systems and APIs for our data-driven applications.',
-    benefits: ['Health Insurance', 'Professional Development', 'Work from Home'],
-    posted: '3 days ago',
-    applicants: 28,
-    companyRating: 4.4
-  },
-  {
-    id: 4,
-    title: 'Software Engineer',
-    company: 'InnovateTech',
-    location: 'Pune, Maharashtra',
-    type: 'Full-time',
-    experience: '1-3 years',
-    salary: '₹10-18 LPA',
-    matchScore: 82,
-    requiredSkills: ['JavaScript', 'Python', 'Git', 'Agile', 'Testing'],
-    matchingSkills: ['JavaScript', 'Python', 'Git'],
-    missingSkills: ['Agile', 'Testing'],
-    description: 'Work on diverse projects and contribute to our growing technology stack.',
-    benefits: ['Health Insurance', 'Gym Membership', 'Learning Resources'],
-    posted: '1 week ago',
-    applicants: 67,
-    companyRating: 4.2
-  },
-  {
-    id: 5,
-    title: 'Web Developer',
-    company: 'Creative Digital',
-    location: 'Chennai, Tamil Nadu',
-    type: 'Full-time',
-    experience: '2-4 years',
-    salary: '₹8-16 LPA',
-    matchScore: 78,
-    requiredSkills: ['HTML/CSS', 'JavaScript', 'PHP', 'MySQL', 'WordPress'],
-    matchingSkills: ['HTML/CSS', 'JavaScript'],
-    missingSkills: ['PHP', 'MySQL', 'WordPress'],
-    description: 'Develop custom websites and web applications for our diverse client base.',
-    benefits: ['Flexible Hours', 'Client Interaction', 'Project Variety'],
-    posted: '4 days ago',
-    applicants: 23,
-    companyRating: 4.1
-  },
-  {
-    id: 6,
-    title: 'Python Developer',
-    company: 'AI Solutions Inc',
-    location: 'Delhi, Delhi',
-    type: 'Full-time',
-    experience: '2-5 years',
-    salary: '₹14-22 LPA',
-    matchScore: 75,
-    requiredSkills: ['Python', 'Machine Learning', 'TensorFlow', 'NumPy', 'Pandas'],
-    matchingSkills: ['Python'],
-    missingSkills: ['Machine Learning', 'TensorFlow', 'NumPy', 'Pandas'],
-    description: 'Develop AI-powered solutions and machine learning models.',
-    benefits: ['Cutting-edge Tech', 'Research Opportunities', 'Conference Attendance'],
-    posted: '5 days ago',
-    applicants: 41,
-    companyRating: 4.5
-  }
-];
+function parseSalaryValue(salary) {
+  if (!salary) return 0;
+  if (typeof salary === 'number') return salary;
+
+  const numeric = String(salary).replace(/,/g, '').match(/\d+/g);
+  if (!numeric) return 0;
+  return Number(numeric[numeric.length - 1]) || 0;
+}
+
+function formatPosted(rawDate) {
+  if (!rawDate) return 'Unknown';
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return String(rawDate);
+
+  const diffMs = Date.now() - date.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const days = Math.floor(diffMs / day);
+
+  if (days <= 0) return 'today';
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return '1 week ago';
+  return `${weeks} weeks ago`;
+}
 
 export function JobMatching({ user }) {
   const [sortBy, setSortBy] = useState('match');
   const [filterByLocation, setFilterByLocation] = useState('all');
+  const [matchedJobs, setMatchedJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [useRerank, setUseRerank] = useState(true);
+  const [rerankTopN, setRerankTopN] = useState('50');
+
+  const userSkills = useMemo(() => {
+    if (Array.isArray(user?.skills) && user.skills.length > 0) {
+      return user.skills.map((name) => ({ name, proficiency: 80 }));
+    }
+    return FALLBACK_SKILLS;
+  }, [user]);
+
+  const fetchMatches = async () => {
+    if (!user?.email) {
+      setMatchedJobs([]);
+      setError('Please log in to get job matches.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({
+        email: user.email,
+        topK: '20',
+        rerank: String(useRerank),
+        rerankTopN: String(Number(rerankTopN) || 50),
+      });
+      const response = await fetch(`http://localhost:8000/api/jobs/match?${params.toString()}`);
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to fetch matched jobs');
+      }
+
+      setMatchedJobs(Array.isArray(payload.jobs) ? payload.jobs : []);
+    } catch (err) {
+      setError(err.message || 'Failed to fetch matched jobs');
+      setMatchedJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMatches();
+  }, [user?.email, useRerank, rerankTopN]);
 
   const sortedJobs = [...matchedJobs].sort((a, b) => {
     switch (sortBy) {
       case 'match':
-        return b.matchScore - a.matchScore;
+        return (b.matchScore || 0) - (a.matchScore || 0);
       case 'salary':
-        const aMax = parseInt(a.salary.split('-')[1].replace(/[^\d]/g, ''));
-        const bMax = parseInt(b.salary.split('-')[1].replace(/[^\d]/g, ''));
-        return bMax - aMax;
-      case 'recent':
-        const getPostedDays = (posted) => {
-          if (posted.includes('day')) return parseInt(posted);
-          if (posted.includes('week')) return parseInt(posted) * 7;
-          return 0;
-        };
-        return getPostedDays(a.posted) - getPostedDays(b.posted);
+        return parseSalaryValue(b.salary) - parseSalaryValue(a.salary);
+      case 'recent': {
+        const dateA = new Date(a.posted || 0).getTime() || 0;
+        const dateB = new Date(b.posted || 0).getTime() || 0;
+        return dateB - dateA;
+      }
       default:
         return 0;
     }
@@ -155,7 +109,7 @@ export function JobMatching({ user }) {
   const filteredJobs = sortedJobs.filter(
     (job) =>
       filterByLocation === 'all' ||
-      job.location.toLowerCase().includes(filterByLocation.toLowerCase())
+      String(job.location || '').toLowerCase().includes(filterByLocation.toLowerCase())
   );
 
   const getMatchScoreColor = (score) => {
@@ -174,14 +128,12 @@ export function JobMatching({ user }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar - User Skills & Filters */}
           <div className="space-y-6">
-            {/* User Skills */}
             <Card className="p-6 bg-white shadow-lg">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Skills</h3>
               <div className="space-y-3">
                 {userSkills.map((skill, index) => (
-                  <div key={index} className="space-y-1">
+                  <div key={`${skill.name}-${index}`} className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium text-gray-700">{skill.name}</span>
                       <span className="text-gray-500">{skill.proficiency}%</span>
@@ -192,7 +144,44 @@ export function JobMatching({ user }) {
               </div>
             </Card>
 
-            {/* Filters */}
+            <Card className="p-6 bg-white shadow-lg">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Ranking Settings</h3>
+              <p className="text-xs text-gray-600 mb-3">
+                These settings control how the backend reranks matched jobs from your saved profile.
+              </p>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={useRerank}
+                    onChange={(e) => setUseRerank(e.target.checked)}
+                  />
+                  Use cross-encoder reranking
+                </label>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                    Rerank top N candidates
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="200"
+                    value={rerankTopN}
+                    onChange={(e) => setRerankTopN(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-blue-900 hover:bg-blue-800"
+                  onClick={() => fetchMatches()}
+                  disabled={loading}
+                >
+                  Refresh Matches
+                </Button>
+              </div>
+            </Card>
+
             <Card className="p-6 bg-white shadow-lg">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Filter className="w-4 h-4" />
@@ -234,7 +223,6 @@ export function JobMatching({ user }) {
               </div>
             </Card>
 
-            {/* Match Statistics */}
             <Card className="p-6 bg-white shadow-lg">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Match Statistics</h3>
               <div className="space-y-3">
@@ -245,29 +233,46 @@ export function JobMatching({ user }) {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Excellent Matches (90%+)</span>
                   <span className="font-semibold text-green-600">
-                    {filteredJobs.filter((job) => job.matchScore >= 90).length}
+                    {filteredJobs.filter((job) => (job.matchScore || 0) >= 90).length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Good Matches (80-89%)</span>
                   <span className="font-semibold text-blue-600">
-                    {filteredJobs.filter((job) => job.matchScore >= 80 && job.matchScore < 90).length}
+                    {filteredJobs.filter((job) => (job.matchScore || 0) >= 80 && (job.matchScore || 0) < 90).length}
                   </span>
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* Job Listings */}
           <div className="lg:col-span-3 space-y-6">
+            {loading && (
+              <Card className="p-6 bg-white shadow-lg">
+                <p className="text-gray-700">Loading matched jobs...</p>
+              </Card>
+            )}
+
+            {!loading && error && (
+              <Card className="p-6 bg-white shadow-lg">
+                <p className="text-red-700">{error}</p>
+              </Card>
+            )}
+
+            {!loading && !error && filteredJobs.length === 0 && (
+              <Card className="p-6 bg-white shadow-lg">
+                <p className="text-gray-700">No job matches found. Complete your profile to improve recommendations.</p>
+              </Card>
+            )}
+
             {filteredJobs.map((job) => (
               <Card key={job.id} className="p-6 bg-white shadow-lg hover:shadow-xl transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
-                      <Badge className={`${getMatchScoreColor(job.matchScore)} font-semibold`}>
-                        {job.matchScore}% Match
+                      <Badge className={`${getMatchScoreColor(job.matchScore || 0)} font-semibold`}>
+                        {job.matchScore || 0}% Match
                       </Badge>
                     </div>
 
@@ -278,7 +283,7 @@ export function JobMatching({ user }) {
                       </div>
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                        <span className="text-sm">{job.companyRating}</span>
+                        <span className="text-sm">{job.companyRating || '-'}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
@@ -305,54 +310,17 @@ export function JobMatching({ user }) {
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-purple-600" />
                       <span className="text-sm">
-                        {job.applicants} applicants • Posted {job.posted}
+                        {job.applicants || 0} applicants • Posted {formatPosted(job.posted)}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-sm font-medium text-gray-700 block mb-1">Matching Skills:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {job.matchingSkills.map((skill, index) => (
-                          <Badge key={index} className="bg-green-100 text-green-800 text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {job.missingSkills.length > 0 && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 block mb-1">Skills to Learn:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {job.missingSkills.map((skill, index) => (
-                            <Badge key={index} className="bg-orange-100 text-orange-800 text-xs">
-                              {skill}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <span className="text-sm font-medium text-gray-700 block mb-2">Benefits:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {job.benefits.map((benefit, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {benefit}
-                      </Badge>
-                    ))}
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600">Match Score:</span>
-                    <Progress value={job.matchScore} className="w-24 h-2" />
-                    <span className="text-sm font-medium">{job.matchScore}%</span>
+                    <Progress value={job.matchScore || 0} className="w-24 h-2" />
+                    <span className="text-sm font-medium">{job.matchScore || 0}%</span>
                   </div>
 
                   <div className="flex gap-3">
